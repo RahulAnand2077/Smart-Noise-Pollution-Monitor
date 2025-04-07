@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>📡 MPCA MQTT Dashboard</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom, #1e3c72, #2a5298);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    .dashboard {
+      background: #ffffff10;
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 30px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      margin-bottom: 10px;
+      color: #ffc107;
+    }
+
+    .log {
+      background: #111;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #0f0;
+      white-space: pre-line;
+    }
+
+    .status {
+      padding: 10px 15px;
+      background: #222;
+      border-radius: 8px;
+      font-size: 15px;
+      color: #0ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <h1>📟 MPCA MQTT Dashboard</h1>
+
+    <div class="section">
+      <h2>📝 Latest Command</h2>
+      <div class="status" id="lastCommand">Waiting for command...</div>
+    </div>
+
+    <div class="section">
+      <h2>✅ Latest Response</h2>
+      <div class="status" id="lastResponse">Waiting for response...</div>
+    </div>
+
+    <div class="section">
+      <h2>📜 Log</h2>
+      <div class="log" id="logBox">Starting dashboard...\n</div>
+    </div>
+  </div>
+
+  <script>
+    const logBox = document.getElementById("logBox");
+    const lastCommand = document.getElementById("lastCommand");
+    const lastResponse = document.getElementById("lastResponse");
+
+    const mqttBroker = "ws://localhost:9001"; 
+    const topicCommand = "mpcaProj/comm";
+    const topicResponse = "mpcaProj/response";
+
+    const client = mqtt.connect(mqttBroker);
+
+    client.on("connect", () => {
+      log("📡 Connected to MQTT broker");
+      client.subscribe([topicCommand, topicResponse], (err) => {
+        if (err) {
+          log("❌ Failed to subscribe to topics");
+        } else {
+          log(`✅ Subscribed to:\n- ${topicCommand}\n- ${topicResponse}`);
+        }
+      });
+    });
+
+    client.on("message", (topic, message) => {
+      const text = message.toString();
+      if (topic === topicCommand) {
+        lastCommand.innerText = text;
+        log("📥 Command: " + text);
+      } else if (topic === topicResponse) {
+        lastResponse.innerText = text;
+        log("📤 Response: " + text);
+      }
+    });
+
+    function log(msg) {
+      logBox.innerText += msg + "\n";
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+  </script>
+</body>
+</html>
