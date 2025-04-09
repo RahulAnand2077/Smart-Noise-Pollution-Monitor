@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>📡 MPCA MQTT Dashboard</title>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom, #1e3c72, #2a5298);
+      color: #fff;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    .dashboard {
+      background: #ffffff10;
+      backdrop-filter: blur(10px);
+      border-radius: 16px;
+      padding: 30px;
+      width: 100%;
+      max-width: 500px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+      color: #fff;
+    }
+
+    .section {
+      margin-bottom: 20px;
+    }
+
+    .section h2 {
+      font-size: 18px;
+      margin-bottom: 10px;
+      color: #ffc107;
+    }
+
+    .log {
+      background: #111;
+      border-radius: 8px;
+      padding: 12px;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      max-height: 200px;
+      overflow-y: auto;
+      color: #0f0;
+      white-space: pre-line;
+    }
+
+    .status {
+      padding: 10px 15px;
+      background: #222;
+      border-radius: 8px;
+      font-size: 15px;
+      color: #0ff;
+    }
+
+    #pollutionLevel {
+      font-size: 18px;
+      font-weight: bold;
+      text-align: center;
+      background-color: #222;
+      padding: 12px;
+      margin-bottom: 25px;
+      border-radius: 10px;
+      color: #fff;
+    }
+
+    .dataBox {
+      background: #111;
+      padding: 15px;
+      border-radius: 10px;
+      font-size: 15px;
+      line-height: 1.6;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .dataBox span {
+      color: #0ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard">
+    <h1>📟 MPCA MQTT Dashboard</h1>
+
+    <div id="pollutionLevel">🌫 Pollution Level: —</div>
+
+    <div class="section">
+      <h2>📝 Latest Command</h2>
+      <div class="status" id="lastCommand">Waiting for command...</div>
+    </div>
+
+    <div class="section">
+      <h2>✅ Latest Response</h2>
+      <div class="status" id="lastResponse">Waiting for response...</div>
+    </div>
+
+    <div class="section">
+      <h2>📊 Latest Data</h2>
+      <div class="dataBox" id="latestData">
+        🌡️ Temperature: <span>—</span> °C<br>
+        💧 Humidity: <span>—</span> %<br>
+        🔊 Sound Level: <span>—</span> dB<br>
+        🌀 Vibration Level: <span>—</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>📜 Log</h2>
+      <div class="log" id="logBox">Starting dashboard...\n</div>
+    </div>
+  </div>
+
+  <script>
+    const logBox = document.getElementById("logBox");
+    const lastCommand = document.getElementById("lastCommand");
+    const lastResponse = document.getElementById("lastResponse");
+    const pollutionLevel = document.getElementById("pollutionLevel");
+    const latestData = document.getElementById("latestData");
+
+    const noiseData = [], tempData = [], humData = [], vibData = [];
+    const maxPoints = 20;
+
+    let latestTemp = "—", latestHum = "—", latestNoise = "—", latestVib = "—";
+
+    const mqttBroker = "ws://localhost:9001"; 
+    const topicCommand = "mpcaProj/comm";
+    const topicResponse = "mpcaProj/response";
+    const client = mqtt.connect(mqttBroker);
+
+    client.on("connect", () => {
+      log("📡 Connected to MQTT broker");
+      client.subscribe([topicCommand, topicResponse], err => {
+        if (err) log("❌ Subscription error");
+        else log(`✅ Subscribed to:\n- ${topicCommand}\n- ${topicResponse}`);
+      });
+    });
+
+    client.on("message", (topic, message) => {
+      const text = message.toString().trim();
+
+      if (topic === topicCommand) {
+        lastCommand.innerText = text;
+        log(`📥 Command: ${text}`);
+      } else if (topic === topicResponse) {
+        lastResponse.innerText = text;
+        log(`📤 Response: ${text}`);
+
+        if (text.startsWith("Noise Level:")) {
+          const val = parseFloat(text.split("Noise Level:")[1]);
+          pushData(noiseData, val); latestNoise = val;
+        } else if (text.startsWith("Temperature:")) {
+          const val = parseFloat(text.split("Temperature:")[1]);
+          pushData(tempData, val); latestTemp = val;
+        } else if (text.startsWith("Humidity:")) {
+          const val = parseFloat(text.split("Humidity:")[1]);
+          pushData(humData, val); latestHum = val;
+        } else if (text.startsWith("Vibration Level:")) {
+          const val = parseFloat(text.split("Vibration Level:")[1]);
+          pushData(vibData, val); latestVib = val;
+        }
+
+        updateLatestDataDisplay();
+
+        if (noiseData.length > 5 && tempData.length > 5 && humData.length > 5 && vibData.length > 5) {
+          evaluatePollution();
+        }
+      }
+    });
+
+    function updateLatestDataDisplay() {
+      latestData.innerHTML = `
+        🌡️ Temperature: <span>${latestTemp}</span> °C<br>
+        💧 Humidity: <span>${latestHum}</span> %<br>
+        🔊 Sound Level: <span>${latestNoise}</span> dB<br>
+        🌀 Vibration Level: <span>${latestVib}</span>
+      `;
+    }
+
+    function pushData(arr, val) {
+      arr.push(val);
+      if (arr.length > maxPoints) arr.shift();
+    }
+
+    function evaluatePollution() {
+      const avgNoise = average(noiseData);
+      const avgTemp = average(tempData);
+      const avgHum = average(humData);
+      const avgVib = average(vibData);
+
+      let status = "Low";
+      let color = "#4caf50";
+
+      if (avgNoise > 75 || avgVib > 7) {
+        status = "High";
+        color = "#f44336";
+      } else if ((avgNoise > 60 && avgHum > 60) || (avgVib > 4 && avgTemp > 30)) {
+        status = "Medium";
+        color = "#ff9800";
+      }
+
+      pollutionLevel.innerText = `🌫 Pollution Level: ${status}`;
+      pollutionLevel.style.color = color;
+    }
+
+    function average(arr) {
+      const sum = arr.reduce((acc, v) => acc + v, 0);
+      return sum / arr.length;
+    }
+
+    function log(msg) {
+      logBox.innerText += msg + "\n";
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+  </script>
+</body>
+</html>
