@@ -4,8 +4,8 @@
 #define RXp2 16
 #define TXp2 17
 
-const char* ssid = "RAHULLAPI";
-const char* password = "2709Hello@";
+const char* ssid = "lapi";
+const char* password = "27092005";
 
 const char* mqttServer = "172.20.10.5";
 const int mqttPort = 1883;
