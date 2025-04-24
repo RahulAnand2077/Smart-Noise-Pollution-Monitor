@@ -4,11 +4,13 @@
 #define RXp2 16
 #define TXp2 17
 
-const char* ssid = "lapi";
-const char* password = "27092005";
+// GPIO Pins on esp 32
+
+const char* ssid = "lapi"; // connect esp-32 
+const char* password = "27092005"; // using ssid
 
 const char* mqttServer = "172.20.10.5";
-const int mqttPort = 1883;
+const int mqttPort = 1883; // setting up mqtt broker
 
 WiFiClient wifiClient;
 PubSubClient client(wifiClient);
@@ -30,8 +32,8 @@ void callback(char* topic, byte* payload, unsigned int length) {
 }
 
 void setup() {
-  Serial.begin(115200);  
-  Serial2.begin(9600, SERIAL_8N1, RXp2, TXp2);  
+  Serial.begin(115200); // debugging  
+  Serial2.begin(9600, SERIAL_8N1, RXp2, TXp2);   // connect adruino
   Serial.println("ESP32 Ready");
 
   WiFi.begin(ssid, password);
@@ -48,7 +50,7 @@ void setup() {
 }
 
 void loop() {
-  if (!client.connected()) {
+  if (!client.connected()) { // re-connected to mqtt if disconnected
     while (!client.connected()) {
       Serial.println("Connecting to MQTT...");
       if (client.connect("ESP32Client")) {
@@ -63,13 +65,13 @@ void loop() {
   }
 
   if (Serial2.available()) {
-    String message = Serial2.readStringUntil('\n');
+    String message = Serial2.readStringUntil('\n'); // receive from adruino 
     Serial.print("Received from Arduino: ");
     Serial.println(message);
     client.publish("mpcaProj/response", message.c_str());
   }
 
-  client.loop();
+  client.loop(); // maintain mqtt connection
 }
 
 
